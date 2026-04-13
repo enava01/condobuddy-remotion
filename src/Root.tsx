@@ -1,6 +1,11 @@
 import "./index.css";
 import { Composition, getStaticFiles } from "remotion";
 import { AIVideo, aiVideoSchema } from "./components/AIVideo";
+import { CondoBuddy, CONDO_TOTAL_FRAMES } from "./components/CondoBuddy";
+import {
+  CondoBuddyProduct,
+  CONDO_PRODUCT_TOTAL_FRAMES,
+} from "./components/CondoBuddyProduct";
 import { FPS, INTRO_DURATION } from "./lib/constants";
 import { getTimelinePath, loadTimelineFromFile } from "./lib/utils";
 
@@ -12,6 +17,24 @@ export const RemotionRoot: React.FC = () => {
 
   return (
     <>
+      <Composition
+        id="CondoBuddy"
+        component={CondoBuddy}
+        fps={30}
+        width={1920}
+        height={1080}
+        durationInFrames={CONDO_TOTAL_FRAMES}
+        defaultProps={{}}
+      />
+      <Composition
+        id="CondoBuddyProduct"
+        component={CondoBuddyProduct}
+        fps={30}
+        width={1920}
+        height={1080}
+        durationInFrames={CONDO_PRODUCT_TOTAL_FRAMES}
+        defaultProps={{}}
+      />
       {timelines.map((storyName) => (
         <Composition
           id={storyName}
