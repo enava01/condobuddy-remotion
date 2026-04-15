@@ -113,11 +113,11 @@ const secondsToFrames = (seconds: number) => Math.round(seconds * FPS);
 const toVideoFrame = (audioSeconds: number) =>
   Math.round((audioSeconds + VO_OFFSET_SECONDS) * FPS);
 const COLD_OPEN_FRAMES = secondsToFrames(6.78);
-const MIN_PHRASE_DURATION_FRAMES = secondsToFrames(1.5);
+const MIN_SHORT_MESSAGE_DURATION_FRAMES = secondsToFrames(1);
+const MIN_LONG_MESSAGE_DURATION_FRAMES = secondsToFrames(2);
 const ROBERTO_SCENE_EXTENSION_FRAMES = 10;
 const CARMEN_SCENE_EXTENSION_FRAMES = secondsToFrames(1.75);
-
-const PAUSE_AFTER_BUILD_FRAMES = 12;
+const PAUSE_AFTER_BUILD_FRAMES = MIN_SHORT_MESSAGE_DURATION_FRAMES;
 
 const SCENE_MARKERS = {
   tension   : toVideoFrame(4.78),
@@ -127,7 +127,10 @@ const SCENE_MARKERS = {
   build     : toVideoFrame(32.865),
   pause     : toVideoFrame(40.14) - PAUSE_AFTER_BUILD_FRAMES,
   bigIdea   : toVideoFrame(40.14),
-  handoff   : toVideoFrame(41.616),
+  handoff   : Math.max(
+    toVideoFrame(41.616),
+    toVideoFrame(40.14) + MIN_LONG_MESSAGE_DURATION_FRAMES,
+  ),
   mobile    : toVideoFrame(48.903),
   kiosk     : toVideoFrame(58.065),
   admin     : toVideoFrame(62.367),
@@ -202,15 +205,21 @@ type TimedPhrase = {
   to: number;
 };
 
+const getMessageMinDurationFrames = (text: string) => {
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+
+  return text.length >= 20 || wordCount >= 4
+    ? MIN_LONG_MESSAGE_DURATION_FRAMES
+    : MIN_SHORT_MESSAGE_DURATION_FRAMES;
+};
+
 const normalizeTimedPhrases = ({
   phrases,
-  minDurationFrames,
   sceneDurationFrames,
   minGapFrames = 2,
   trailingPaddingFrames = 12,
 }: {
   phrases: TimedPhrase[];
-  minDurationFrames: number;
   sceneDurationFrames: number;
   minGapFrames?: number;
   trailingPaddingFrames?: number;
@@ -222,6 +231,7 @@ const normalizeTimedPhrases = ({
     const from = previous
       ? Math.max(phrase.from, previous.to + minGapFrames)
       : phrase.from;
+    const minDurationFrames = getMessageMinDurationFrames(phrase.text);
     const to = Math.min(
       sceneEnd,
       Math.max(phrase.to, from + minDurationFrames),
@@ -257,6 +267,15 @@ const getPhraseOpacity = (frame: number, from: number, to: number) => {
     extrapolateRight: "clamp",
     easing: easeOut,
   });
+};
+
+const splitHeadline = (title: string) => {
+  const parts = title.split("...");
+
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part, index, arr) => (index < arr.length - 1 ? `${part}...` : part));
 };
 
 /** Fade in → hold → fade out within a scene's local frame range. */
@@ -673,6 +692,7 @@ const ExplainerText: React.FC<{
   bodyLineHeight?: number;
   eyebrowSize ?: number;
   eyebrowSpacing?: number;
+  titleShadow?: string;
 }> = ({
   title,
   body,
@@ -689,6 +709,7 @@ const ExplainerText: React.FC<{
   bodyLineHeight = 1.28,
   eyebrowSize  = 15,
   eyebrowSpacing = SP.sm,
+  titleShadow,
 }) => {
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
@@ -741,6 +762,7 @@ const ExplainerText: React.FC<{
           fontWeight   : 600,
           letterSpacing: "-0.03em",
           color        : titleColor,
+          textShadow   : titleShadow,
         }}
       >
         {title}
@@ -1164,23 +1186,26 @@ const TensionScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
     extrapolateRight: "clamp",
     easing: easeInOut,
   });
-  const lines = [
-    {
-      text: "Y no es solo la espera...",
-      from: secondsToFrames(6.78) - TIMELINE.tension.from,
-      to: secondsToFrames(8.27) - TIMELINE.tension.from,
-    },
-    {
-      text: "es no saber...",
-      from: secondsToFrames(8.799) - TIMELINE.tension.from,
-      to: secondsToFrames(9.73) - TIMELINE.tension.from,
-    },
-    {
-      text: "quién está realmente entrando.",
-      from: secondsToFrames(10.104) - TIMELINE.tension.from,
-      to: secondsToFrames(11.952) - TIMELINE.tension.from,
-    },
-  ] as const;
+  const lines = normalizeTimedPhrases({
+    phrases: [
+      {
+        text: "Y no es solo la espera...",
+        from: secondsToFrames(6.78) - TIMELINE.tension.from,
+        to: secondsToFrames(8.27) - TIMELINE.tension.from,
+      },
+      {
+        text: "es no saber...",
+        from: secondsToFrames(8.799) - TIMELINE.tension.from,
+        to: secondsToFrames(9.73) - TIMELINE.tension.from,
+      },
+      {
+        text: "quién está realmente entrando.",
+        from: secondsToFrames(10.104) - TIMELINE.tension.from,
+        to: secondsToFrames(11.952) - TIMELINE.tension.from,
+      },
+    ],
+    sceneDurationFrames: totalDuration,
+  });
 
   return (
     <AbsoluteFill style={{overflow: "hidden", opacity, background: `linear-gradient(168deg, ${BG} 0%, ${BG_SOFT} 60%, #EFF6FF 100%)`}}>
@@ -1482,10 +1507,55 @@ const CharacterFocusScene: React.FC<{
  * No content — just the neutral background for a clean visual pause.
  */
 const PauseScene: React.FC = () => (
-  <Background accent="neutral">
-    <AbsoluteFill />
-  </Background>
+  <PauseMoment />
 );
+
+const PauseMoment: React.FC = () => {
+  const frame = useCurrentFrame();
+  const breath = interpolate(frame, [0, MIN_SHORT_MESSAGE_DURATION_FRAMES], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
+  const pulse = interpolate(
+    Math.sin((frame / MIN_SHORT_MESSAGE_DURATION_FRAMES) * Math.PI),
+    [0, 1],
+    [0.65, 1],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    },
+  );
+
+  return (
+    <Background accent="neutral" opacity={interpolate(breath, [0, 1], [0.92, 1])}>
+      <AbsoluteFill>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(circle at 50% 50%, rgba(15,23,42,0.10) 0%, rgba(15,23,42,0.04) 22%, transparent 58%)",
+            opacity: pulse,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: 2,
+            height: interpolate(breath, [0, 1], [36, 116]),
+            transform: "translate(-50%, -50%)",
+            background: "linear-gradient(180deg, rgba(59,130,246,0) 0%, rgba(59,130,246,0.8) 50%, rgba(59,130,246,0) 100%)",
+            boxShadow: "0 0 32px rgba(59,130,246,0.35)",
+            opacity: pulse,
+          }}
+        />
+      </AbsoluteFill>
+    </Background>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1513,9 +1583,38 @@ const ProblemBuildScene: React.FC<{totalDuration: number}> = ({totalDuration}) =
     [1, 1, 0],
     {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
   );
+  const line1 = enterProgress(frame, FPS, 2);
+  const line2 = enterProgress(frame, FPS, 10);
+  const line3 = enterProgress(frame, FPS, 18);
+  const lineScales = [line1, line2, line3].map((progress) =>
+    interpolate(progress, [0, 1], [0.96, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
+  );
+  const lineYs = [line1, line2, line3].map((progress) =>
+    interpolate(progress, [0, 1], [24, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
+  );
+  const atmosphere = interpolate(frame, [0, totalDuration], [0.84, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
 
   return (
     <Background opacity={opacity} accent="neutral">
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 50% 42%, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.05) 26%, transparent 60%)",
+          opacity: atmosphere,
+        }}
+      />
       <div
         style={{
           position: "absolute",
@@ -1542,6 +1641,7 @@ const ProblemBuildScene: React.FC<{totalDuration: number}> = ({totalDuration}) =
               fontWeight: 600,
               letterSpacing: "-0.033em",
               color: TEXT,
+              transform: `translateY(${lineYs[0]}px) scale(${lineScales[0]})`,
             }}
           >
             Demasiados pasos.
@@ -1555,6 +1655,7 @@ const ProblemBuildScene: React.FC<{totalDuration: number}> = ({totalDuration}) =
               fontWeight: 600,
               letterSpacing: "-0.031em",
               color: TEXT_MID,
+              transform: `translateY(${lineYs[1]}px) scale(${lineScales[1]})`,
             }}
           >
             Demasiadas suposiciones.
@@ -1568,6 +1669,8 @@ const ProblemBuildScene: React.FC<{totalDuration: number}> = ({totalDuration}) =
               fontWeight: 600,
               letterSpacing: "-0.03em",
               color: TEXT,
+              transform: `translateY(${lineYs[2]}px) scale(${lineScales[2]})`,
+              textShadow: "0 10px 30px rgba(15,23,42,0.08)",
             }}
           >
             Demasiada responsabilidad... sin herramientas.
@@ -1585,10 +1688,68 @@ const TurningPointScene: React.FC<{
   showMascot  ?: boolean;
   titleDelay  ?: number;
   bodyDelay   ?: number;
-}> = ({totalDuration, title, subtitle, showMascot = false, titleDelay = 4, bodyDelay = 14}) => {
+  cinematicPhase?: "idea" | "handoff";
+}> = ({
+  totalDuration,
+  title,
+  subtitle,
+  showMascot = false,
+  titleDelay = 4,
+  bodyDelay = 14,
+  cinematicPhase = "idea",
+}) => {
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
   const opacity = fadeScene(frame, totalDuration, 10, 10);
+  const titleLines = splitHeadline(title);
+  const titleEnter = enterProgress(frame, fps, titleDelay);
+  const subtitleEnter = enterProgress(frame, fps, bodyDelay);
+  const titleOpacity = interpolate(titleEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const titleY = interpolate(titleEnter, [0, 1], [28, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const titleScale = interpolate(titleEnter, [0, 1], [0.965, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const subtitleOpacity = interpolate(subtitleEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const subtitleY = interpolate(subtitleEnter, [0, 1], [18, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const halo = interpolate(frame, [0, totalDuration], [0.75, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
+  const highlightSweep = interpolate(frame, [0, totalDuration], [-360, 360], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
+  const lensGlow = interpolate(frame, [0, totalDuration], [0.72, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
+  const titleDriftX = interpolate(
+    frame,
+    [0, totalDuration],
+    cinematicPhase === "handoff" ? [-18, 0] : [0, 18],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: easeInOut,
+    },
+  );
+  const beamOpacity = cinematicPhase === "handoff" ? 0.48 : 0.32;
 
   const mascotEnter = spring({
     frame,
@@ -1607,6 +1768,55 @@ const TurningPointScene: React.FC<{
     <Background opacity={opacity} accent="neutral">
       <div
         style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            cinematicPhase === "handoff"
+              ? "radial-gradient(circle at 56% 42%, rgba(59,130,246,0.13) 0%, rgba(139,92,246,0.08) 24%, transparent 58%)"
+              : "radial-gradient(circle at 50% 42%, rgba(59,130,246,0.10) 0%, rgba(139,92,246,0.06) 24%, transparent 58%)",
+          opacity: halo * lensGlow,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: cinematicPhase === "handoff" ? 860 : 720,
+          height: 720,
+          transform: `translate(-50%, -50%) rotate(${cinematicPhase === "handoff" ? 10 : 18}deg) translateX(${highlightSweep}px)`,
+          background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.24) 50%, rgba(255,255,255,0) 100%)",
+          filter: "blur(36px)",
+          opacity: beamOpacity,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: cinematicPhase === "handoff" ? 980 : 820,
+          height: 2,
+          transform: `translate(-50%, -50%) translateX(${interpolate(
+            frame,
+            [0, totalDuration],
+            cinematicPhase === "handoff" ? [-120, 90] : [-40, 120],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: easeInOut,
+            },
+          )}px)`,
+          background:
+            "linear-gradient(90deg, rgba(59,130,246,0) 0%, rgba(59,130,246,0.62) 46%, rgba(59,130,246,0.12) 70%, rgba(59,130,246,0) 100%)",
+          boxShadow: "0 0 28px rgba(59,130,246,0.22)",
+          opacity: cinematicPhase === "handoff" ? 0.6 : 0.35,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
           position      : "absolute",
           inset         : 0,
           display       : "flex",
@@ -1615,14 +1825,92 @@ const TurningPointScene: React.FC<{
           padding       : `0 ${SP.frame * 2}px`,
         }}
       >
-        <ExplainerText
-          title={title}
-          body={subtitle}
-          centered
-          maxWidth={980}
-          delay={titleDelay}
-          bodyDelay={bodyDelay}
-        />
+        <div
+          style={{
+            width: 980,
+            textAlign: "center",
+            transform: `translate(${titleDriftX}px, ${titleY}px) scale(${titleScale})`,
+            opacity: titleOpacity,
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 18px",
+              marginBottom: 28,
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.58)",
+              border: "1px solid rgba(15,23,42,0.08)",
+              boxShadow: "0 12px 30px rgba(15,23,42,0.06)",
+              fontFamily: BODY_FONT,
+              fontSize: 14,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: BLUE,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: BLUE,
+                boxShadow: "0 0 18px rgba(59,130,246,0.45)",
+              }}
+            />
+            CondoBuddy
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              alignItems: "center",
+              textWrap: "balance",
+            }}
+          >
+            {titleLines.map((line, index) => (
+              <div
+                key={`${line}-${index}`}
+                style={{
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: titleLines.length > 1 ? 86 : 92,
+                  lineHeight: 0.95,
+                  fontWeight: 600,
+                  letterSpacing: "-0.034em",
+                  color: TEXT,
+                  textShadow: "0 18px 40px rgba(15,23,42,0.10)",
+                  transform: `translateY(${interpolate(titleEnter, [0, 1], [18 + index * 10, 0], {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  })}px)`,
+                }}
+              >
+                {line}
+              </div>
+            ))}
+          </div>
+          {subtitle ? (
+            <div
+              style={{
+                marginTop: 28,
+                fontFamily: BODY_FONT,
+                fontSize: 34,
+                lineHeight: 1.2,
+                fontWeight: 500,
+                letterSpacing: "-0.02em",
+                color: TEXT_MID,
+                opacity: subtitleOpacity,
+                transform: `translateY(${subtitleY}px)`,
+              }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {showMascot ? (
@@ -1661,6 +1949,7 @@ const VideoScene: React.FC<{
   align        : "left" | "right";
   frameHeight  : number;
   cardEntranceDelay?: number;
+  bridgeFromTurningPoint?: boolean;
 }> = ({
   totalDuration,
   src,
@@ -1673,9 +1962,20 @@ const VideoScene: React.FC<{
   align,
   frameHeight,
   cardEntranceDelay = 0,
+  bridgeFromTurningPoint = false,
 }) => {
   const frame   = useCurrentFrame();
   const opacity = fadeScene(frame, totalDuration);
+  const bridgeGlow = interpolate(frame, [0, 22], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeOut,
+  });
+  const bridgeLineX = interpolate(frame, [0, 20], [0, align === "left" ? 420 : -420], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeOut,
+  });
 
   const textBlock = (
     <ExplainerText
@@ -1683,8 +1983,15 @@ const VideoScene: React.FC<{
       eyebrowColor={accent}
       title={title}
       body={body}
-      maxWidth={520}
+      maxWidth={560}
       delay={6}
+      titleSize={94}
+      titleLineHeight={0.95}
+      bodySize={39}
+      bodyLineHeight={1.22}
+      eyebrowSize={19}
+      eyebrowSpacing={22}
+      titleShadow="0 16px 34px rgba(15,23,42,0.08)"
     />
   );
   const card = (
@@ -1702,13 +2009,51 @@ const VideoScene: React.FC<{
 
   return (
     <Background opacity={opacity} accent={accentKey}>
+      {bridgeFromTurningPoint ? (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(circle at 50% 44%, rgba(59,130,246,0.14) 0%, rgba(59,130,246,0.06) 22%, transparent 54%)",
+              opacity: bridgeGlow,
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: 900,
+              height: 2,
+              transform: `translate(-50%, -50%) translateX(${bridgeLineX}px)`,
+              background:
+                "linear-gradient(90deg, rgba(59,130,246,0) 0%, rgba(59,130,246,0.58) 45%, rgba(59,130,246,0.1) 72%, rgba(59,130,246,0) 100%)",
+              boxShadow: "0 0 24px rgba(59,130,246,0.2)",
+              opacity: bridgeGlow,
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      ) : null}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 28%, rgba(15,23,42,0.04) 100%)",
+          pointerEvents: "none",
+        }}
+      />
       <div
         style={{
           position           : "absolute",
           inset              : 0,
           padding            : `${SP.frame}px`,
           display            : "grid",
-          gridTemplateColumns: align === "left" ? "1fr 520px" : "520px 1fr",
+          gridTemplateColumns: align === "left" ? "1fr 560px" : "560px 1fr",
           gap                : SP.lg,
           alignItems         : "center",
         }}
@@ -1802,10 +2147,63 @@ const BenefitSequence: React.FC<{totalDuration: number}> = ({totalDuration}) => 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ResolutionScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
-  const opacity = fadeScene(useCurrentFrame(), totalDuration, 10, 12);
+  const frame = useCurrentFrame();
+  const opacity = fadeScene(frame, totalDuration, 10, 12);
+  const safeEnter = enterProgress(frame, FPS, 4);
+  const secureEnter = enterProgress(frame, FPS, 18);
+  const safeOpacity = interpolate(safeEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const secureOpacity = interpolate(secureEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const secureScale = interpolate(secureEnter, [0, 1], [0.9, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const secureY = interpolate(secureEnter, [0, 1], [24, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const secureGlow = interpolate(secureEnter, [0, 1], [0.2, 0.62], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const subtitleY = interpolate(secureEnter, [0, 1], [16, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const subtitleOpacity = interpolate(secureEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   return (
     <Background opacity={opacity} accent="neutral">
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(20,184,166,0.10) 0%, rgba(59,130,246,0.05) 24%, transparent 58%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          width: 1080,
+          height: 3,
+          transform: "translate(-50%, -50%)",
+          background:
+            "linear-gradient(90deg, rgba(20,184,166,0) 0%, rgba(20,184,166,0.62) 50%, rgba(20,184,166,0) 100%)",
+          boxShadow: `0 0 48px rgba(20,184,166,${secureGlow})`,
+          opacity: secureOpacity * 0.78,
+        }}
+      />
       <div
         style={{
           position: "absolute",
@@ -1816,14 +2214,53 @@ const ResolutionScene: React.FC<{totalDuration: number}> = ({totalDuration}) => 
           padding: `0 ${SP.frame * 2}px`,
         }}
       >
-        <ExplainerText
-          title="Más simple..."
-          body="pero también... más seguro."
-          centered
-          maxWidth={980}
-          delay={4}
-          bodyDelay={28}
-        />
+        <div style={{width: 980, textAlign: "center"}}>
+          <div
+            style={{
+              fontFamily: BODY_FONT,
+              fontSize: 28,
+              lineHeight: 1.1,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: TEXT_MID,
+              opacity: safeOpacity,
+            }}
+          >
+            Más simple...
+          </div>
+          <div
+            style={{
+              marginTop: 20,
+              fontFamily: DISPLAY_FONT,
+              fontSize: 128,
+              lineHeight: 0.9,
+              fontWeight: 700,
+              letterSpacing: "-0.052em",
+              color: TEXT,
+              opacity: secureOpacity,
+              transform: `translateY(${secureY}px) scale(${secureScale})`,
+              textShadow: "0 24px 58px rgba(15,23,42,0.16)",
+            }}
+          >
+            MÁS SEGURO.
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              fontFamily: BODY_FONT,
+              fontSize: 32,
+              lineHeight: 1.2,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+              color: TEXT_MID,
+              opacity: subtitleOpacity,
+              transform: `translateY(${subtitleY}px)`,
+            }}
+          >
+            Para ti, y los tuyos.
+          </div>
+        </div>
       </div>
     </Background>
   );
@@ -2043,7 +2480,6 @@ export const CondoBuddyProduct: React.FC = () => {
                 to: secondsToFrames(18.583) - TIMELINE.lore.from,
               },
             ],
-            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
             sceneDurationFrames: sceneDuration("lore"),
           })}
           align="left"
@@ -2077,7 +2513,6 @@ export const CondoBuddyProduct: React.FC = () => {
                 to: secondsToFrames(24.924) - TIMELINE.roberto.from,
               },
             ],
-            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
             sceneDurationFrames: sceneDuration("roberto"),
           })}
           align="right"
@@ -2114,7 +2549,6 @@ export const CondoBuddyProduct: React.FC = () => {
                 ),
               },
             ],
-            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
             sceneDurationFrames: sceneDuration("carmen"),
           })}
           align="left"
@@ -2135,6 +2569,7 @@ export const CondoBuddyProduct: React.FC = () => {
           totalDuration={sceneDuration("bigIdea")}
           title="¿Y si nadie tuviera que instalar nada?"
           titleDelay={4}
+          cinematicPhase="idea"
         />
       </Sequence>
 
@@ -2146,6 +2581,7 @@ export const CondoBuddyProduct: React.FC = () => {
           showMascot
           titleDelay={0}
           bodyDelay={18}
+          cinematicPhase="handoff"
         />
       </Sequence>
 
@@ -2162,6 +2598,7 @@ export const CondoBuddyProduct: React.FC = () => {
           align="left"
           frameHeight={780}
           cardEntranceDelay={4}
+          bridgeFromTurningPoint
         />
       </Sequence>
 
