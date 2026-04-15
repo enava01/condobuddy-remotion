@@ -8,13 +8,30 @@ export const loadTimelineFromFile = async (filename: string) => {
   const timeline = json as Timeline;
   timeline.elements.sort((a, b) => a.startMs - b.startMs);
 
-  const lengthMs =
-    timeline.elements.length > 0
-      ? timeline.elements[timeline.elements.length - 1].endMs / 1000
-      : 0;
-  const lengthFrames = Math.floor(lengthMs * FPS);
+  const lengthMs = getTimelineDurationMs(timeline);
+  const lengthFrames = Math.ceil((lengthMs / 1000) * FPS);
 
   return { timeline, lengthFrames };
+};
+
+const getLastEndMs = <
+  T extends {
+    endMs: number;
+  },
+>(
+  items: T[],
+) => {
+  return items.length === 0
+    ? 0
+    : items.reduce((max, item) => Math.max(max, item.endMs), 0);
+};
+
+export const getTimelineDurationMs = (timeline: Timeline) => {
+  return Math.max(
+    getLastEndMs(timeline.elements),
+    getLastEndMs(timeline.text),
+    getLastEndMs(timeline.audio),
+  );
 };
 
 export const calculateFrameTiming = (
@@ -24,10 +41,10 @@ export const calculateFrameTiming = (
 ) => {
   const { includeIntro = false, addIntroOffset = false } = options;
 
-  const startFrame =
-    (startMs * FPS) / 1000 + (addIntroOffset ? INTRO_DURATION : 0);
-  const duration =
-    ((endMs - startMs) * FPS) / 1000 + (includeIntro ? INTRO_DURATION : 0);
+  const baseStartFrame = Math.floor((startMs * FPS) / 1000);
+  const baseDuration = Math.max(1, Math.ceil(((endMs - startMs) * FPS) / 1000));
+  const startFrame = baseStartFrame + (addIntroOffset ? INTRO_DURATION : 0);
+  const duration = baseDuration + (includeIntro ? INTRO_DURATION : 0);
 
   return { startFrame, duration };
 };

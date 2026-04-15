@@ -43,7 +43,7 @@ const MOBILE    = staticFile("assets/mobile.mov");
 const KIOSK     = staticFile("assets/kiosk.mov");
 const ADMIN     = staticFile("assets/admin.mov");
 const MASCOT    = staticFile("assets/mascot.mp4");
-const VOICEOVER = staticFile("assets/voiceover_processed.mp3");
+const VOICEOVER = staticFile("assets/voiceover-dani.mp3");
 const MUSIC     = staticFile("assets/music.mp3");
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
@@ -53,14 +53,12 @@ const BG       = "#FFFFFF";
 const BG_SOFT  = "#F8FAFC";
 const TEXT     = "#0F172A";
 const TEXT_MID = "#475569";
-const TEXT_LOW = "#94A3B8";
 const BLUE     = "#3B82F6";
 const PURPLE   = "#8B5CF6";
 const TEAL     = "#14B8A6";
 const BORDER   = "rgba(15,23,42,0.07)";
 
 // Radius system — applied consistently to ALL card surfaces
-const R_SM = 16;   // chips, pills
 const R_MD = 24;   // role cards, character frames
 const R_LG = 32;   // video cards, major surfaces
 
@@ -69,12 +67,6 @@ const SHADOW_CARD = [
   "0 1px 3px rgba(15,23,42,0.03)",
   "0 6px 24px rgba(15,23,42,0.05)",
   "0 22px 60px rgba(15,23,42,0.07)",
-].join(", ");
-
-const SHADOW_FLOAT = [
-  "0 2px 6px rgba(15,23,42,0.04)",
-  "0 14px 36px rgba(15,23,42,0.07)",
-  "0 40px 100px rgba(15,23,42,0.08)",
 ].join(", ");
 
 // Spacing scale
@@ -95,98 +87,78 @@ const INNER_RING: React.CSSProperties = {
 // ─── TIMING CONSTANTS ────────────────────────────────────────────────────────
 
 const FPS                          = 30;
-const AUDIO_DURATION_SECONDS       = 65.306063;
+const AUDIO_DURATION_SECONDS       = 79.229375;
 const AUDIO_TOTAL_FRAMES           = Math.ceil(AUDIO_DURATION_SECONDS * FPS);
 const MASCOT_DURATION_SECONDS      = 8;
 const MASCOT_TOTAL_FRAMES          = Math.round(MASCOT_DURATION_SECONDS * FPS);
-const COLD_OPEN_DURATION           = Math.round(2.5 * FPS);
-const HOOK_TEXT_DURATION           = Math.round(2.5 * FPS);
-const COLD_OPEN_FRAMES             = COLD_OPEN_DURATION + HOOK_TEXT_DURATION;
-const VOICEOVER_START_FRAME        = COLD_OPEN_FRAMES;
-const TURNING_B_VISUAL_DELAY       = 6;
+const VO_OFFSET_SECONDS            = 2;
+const VOICEOVER_START_FRAME        = Math.round(2 * FPS);
+const COLD_OPEN_DURATION           = VOICEOVER_START_FRAME;
 const MUSIC_FADE_IN_FRAMES         = 22;
 const MUSIC_FADE_OUT_FRAMES        = 18;
-const MUSIC_COLD_OPEN_VOLUME       = 0.1;
-const MUSIC_UNDER_VO_VOLUME        = 0.046; // slight raise → continuous bed presence masks micro-transitions
-const MUSIC_TRANSITION_VOLUME      = 0.068;
-const MUSIC_FINAL_VOLUME           = 0.082;
-const MUSIC_PAUSE_LIFT             = 0.024; // wider lift → audible bridge over voiceover edit points
-const VOICEOVER_BASE_VOLUME        = 0.90;  // slight headroom → reduces clipping-adjacent perception
+const MUSIC_COLD_OPEN_VOLUME       = 0.082;
+const MUSIC_UNDER_VO_VOLUME        = 0.046;  // raised: continuous bed presence fills micro-transitions
+const MUSIC_PAUSE_LIFT             = 0.024;  // music rise during each detected pause
+const MUSIC_TRANSITION_VOLUME      = 0.058;
+const MUSIC_FINAL_VOLUME           = 0.068;
+const VOICEOVER_BASE_VOLUME        = 0.90;
 const MASCOT_AUDIO_COLD_OPEN_VOLUME   = 0.2;
 const MASCOT_AUDIO_TRANSITION_VOLUME  = 0.06;
 const MASCOT_AUDIO_FINAL_VOLUME       = 0.12;
-const HAS_MASCOT_AUDIO             = true;
+const HAS_MASCOT_AUDIO             = false;
 
 export const CONDO_PRODUCT_TOTAL_FRAMES = VOICEOVER_START_FRAME + AUDIO_TOTAL_FRAMES;
 
-const TIMELINE = {
-  coldOpen: {from: 0,                           to: VOICEOVER_START_FRAME},
-  resident: {from: VOICEOVER_START_FRAME,       to: VOICEOVER_START_FRAME + 121},
-  problem:  {from: VOICEOVER_START_FRAME + 121, to: VOICEOVER_START_FRAME + 327},
-  people:   {from: VOICEOVER_START_FRAME + 327, to: VOICEOVER_START_FRAME + 579},
-  turningA: {from: VOICEOVER_START_FRAME + 579, to: VOICEOVER_START_FRAME + 817 + TURNING_B_VISUAL_DELAY},
-  turningB: {from: VOICEOVER_START_FRAME + 817 + TURNING_B_VISUAL_DELAY, to: VOICEOVER_START_FRAME + 1028},
-  mobile:   {from: VOICEOVER_START_FRAME + 1028, to: VOICEOVER_START_FRAME + 1214},
-  kiosk:    {from: VOICEOVER_START_FRAME + 1214, to: VOICEOVER_START_FRAME + 1424},
-  admin:    {from: VOICEOVER_START_FRAME + 1424, to: VOICEOVER_START_FRAME + 1607},
-  benefits: {from: VOICEOVER_START_FRAME + 1607, to: VOICEOVER_START_FRAME + 1835},
-  final:    {from: VOICEOVER_START_FRAME + 1835, to: CONDO_PRODUCT_TOTAL_FRAMES},
+const secondsToFrames = (seconds: number) => Math.round(seconds * FPS);
+const toVideoFrame = (audioSeconds: number) =>
+  Math.round((audioSeconds + VO_OFFSET_SECONDS) * FPS);
+const COLD_OPEN_FRAMES = secondsToFrames(6.78);
+const MIN_PHRASE_DURATION_FRAMES = secondsToFrames(1.5);
+const ROBERTO_SCENE_EXTENSION_FRAMES = 10;
+const CARMEN_SCENE_EXTENSION_FRAMES = secondsToFrames(1.75);
+
+const PAUSE_AFTER_BUILD_FRAMES = 12;
+
+const SCENE_MARKERS = {
+  tension   : toVideoFrame(4.78),
+  lore      : toVideoFrame(10.995),
+  roberto   : toVideoFrame(17.725),
+  carmen    : toVideoFrame(25.27),
+  build     : toVideoFrame(32.865),
+  pause     : toVideoFrame(40.14) - PAUSE_AFTER_BUILD_FRAMES,
+  bigIdea   : toVideoFrame(40.14),
+  handoff   : toVideoFrame(41.616),
+  mobile    : toVideoFrame(48.903),
+  kiosk     : toVideoFrame(58.065),
+  admin     : toVideoFrame(62.367),
+  benefits  : toVideoFrame(65.67),
+  resolution: toVideoFrame(69.596),
+  final     : toVideoFrame(72.862),
 } as const;
 
-/**
- * All detected silence windows in the voiceover (threshold −24.93 dB, min 250 ms).
- * Each entry covers the FULL silence duration — onset to end — not just the tail.
- * Waveform-mapped via FFmpeg silencedetect on the actual audio file.
- *
- * Previous values only covered the last few frames of each pause, leaving
- * the majority of each silence without musical fill — causing perceived dead air.
- */
-const MUSIC_LIFTS = [
-  // ── Resident scene ─────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 66,  to: VOICEOVER_START_FRAME + 82},   // 2.205–2.715s (510ms)
-  {from: VOICEOVER_START_FRAME + 107, to: VOICEOVER_START_FRAME + 122},  // 3.576–4.032s (456ms) → scene cut
-  // ── Problem scene ──────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 144, to: VOICEOVER_START_FRAME + 157},  // 4.806–5.204s (398ms)
-  {from: VOICEOVER_START_FRAME + 188, to: VOICEOVER_START_FRAME + 213},  // 6.275–7.077s (802ms)
-  {from: VOICEOVER_START_FRAME + 235, to: VOICEOVER_START_FRAME + 252},  // 7.838–8.368s (530ms)
-  {from: VOICEOVER_START_FRAME + 303, to: VOICEOVER_START_FRAME + 328},  // 10.112–10.892s (781ms) → scene cut
-  // ── People scene ───────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 375, to: VOICEOVER_START_FRAME + 389},  // 12.501–12.923s (422ms)
-  {from: VOICEOVER_START_FRAME + 421, to: VOICEOVER_START_FRAME + 437},  // 14.049–14.540s (491ms)
-  {from: VOICEOVER_START_FRAME + 472, to: VOICEOVER_START_FRAME + 492},  // 15.746–16.377s (630ms)
-  {from: VOICEOVER_START_FRAME + 513, to: VOICEOVER_START_FRAME + 527},  // 17.106–17.518s (412ms)
-  {from: VOICEOVER_START_FRAME + 553, to: VOICEOVER_START_FRAME + 580},  // 18.428–19.310s (882ms) → scene cut
-  // ── TurningA scene ─────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 644, to: VOICEOVER_START_FRAME + 663},  // 21.466–22.069s (603ms)
-  {from: VOICEOVER_START_FRAME + 794, to: VOICEOVER_START_FRAME + 818},  // 26.457–27.220s (762ms) → scene cut
-  // ── TurningB scene ─────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 863, to: VOICEOVER_START_FRAME + 875},  // 28.752–29.142s (389ms)
-  {from: VOICEOVER_START_FRAME + 911, to: VOICEOVER_START_FRAME + 927},  // 30.365–30.854s (490ms)
-  {from: VOICEOVER_START_FRAME + 993, to: VOICEOVER_START_FRAME + 1029}, // 33.092–34.271s (1179ms) → scene cut [was only last 10f!]
-  // ── Mobile scene ───────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 1076, to: VOICEOVER_START_FRAME + 1109}, // 35.870–36.943s (1073ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1187, to: VOICEOVER_START_FRAME + 1215}, // 39.552–40.474s (922ms) → scene cut [was only last 8f!]
-  // ── Kiosk scene ────────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 1294, to: VOICEOVER_START_FRAME + 1308}, // 43.118–43.553s (435ms)
-  {from: VOICEOVER_START_FRAME + 1349, to: VOICEOVER_START_FRAME + 1383}, // 44.968–46.070s (1102ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1412, to: VOICEOVER_START_FRAME + 1425}, // 47.057–47.473s (416ms) → scene cut
-  // ── Admin scene ────────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 1480, to: VOICEOVER_START_FRAME + 1501}, // 49.326–50.006s (681ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1592, to: VOICEOVER_START_FRAME + 1609}, // 53.075–53.584s (509ms) → scene cut
-  // ── Benefits scene ─────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 1689, to: VOICEOVER_START_FRAME + 1710}, // 56.295–56.983s (688ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1775, to: VOICEOVER_START_FRAME + 1787}, // 59.152–59.520s (368ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1812, to: VOICEOVER_START_FRAME + 1836}, // 60.405–61.170s (765ms) → scene cut [was only last 9f!]
-  // ── Final scene ────────────────────────────────────────────────────────────
-  {from: VOICEOVER_START_FRAME + 1861, to: VOICEOVER_START_FRAME + 1883}, // 62.042–62.747s (705ms) [was completely missing!]
-  {from: VOICEOVER_START_FRAME + 1905, to: VOICEOVER_START_FRAME + 1918}, // 63.491–63.909s (418ms) [was completely missing!]
-] as const;
+const TIMELINE = {
+  coldOpen  : {from: 0, to: COLD_OPEN_FRAMES},
+  tension   : {from: SCENE_MARKERS.tension,    to: SCENE_MARKERS.lore},
+  lore      : {from: SCENE_MARKERS.lore,       to: SCENE_MARKERS.roberto},
+  roberto   : {from: SCENE_MARKERS.roberto,    to: SCENE_MARKERS.carmen + ROBERTO_SCENE_EXTENSION_FRAMES},
+  carmen    : {from: SCENE_MARKERS.carmen + ROBERTO_SCENE_EXTENSION_FRAMES, to: SCENE_MARKERS.build + CARMEN_SCENE_EXTENSION_FRAMES},
+  build     : {from: SCENE_MARKERS.build + CARMEN_SCENE_EXTENSION_FRAMES, to: SCENE_MARKERS.pause},
+  pause     : {from: SCENE_MARKERS.pause,      to: SCENE_MARKERS.bigIdea},
+  bigIdea   : {from: SCENE_MARKERS.bigIdea,    to: SCENE_MARKERS.handoff},
+  handoff   : {from: SCENE_MARKERS.handoff,    to: SCENE_MARKERS.mobile},
+  mobile    : {from: SCENE_MARKERS.mobile,     to: SCENE_MARKERS.kiosk},
+  kiosk     : {from: SCENE_MARKERS.kiosk,      to: SCENE_MARKERS.admin},
+  admin     : {from: SCENE_MARKERS.admin,      to: SCENE_MARKERS.benefits},
+  benefits  : {from: SCENE_MARKERS.benefits,   to: SCENE_MARKERS.resolution},
+  resolution: {from: SCENE_MARKERS.resolution, to: SCENE_MARKERS.final},
+  final     : {from: SCENE_MARKERS.final,      to: CONDO_PRODUCT_TOTAL_FRAMES},
+} as const;
 
 const sceneDuration = (key: keyof typeof TIMELINE) =>
   TIMELINE[key].to - TIMELINE[key].from;
 
 const COLD_OPEN_SCENE_DURATION = sceneDuration("coldOpen");
-const TURNING_B_SCENE_DURATION = sceneDuration("turningB");
+const HANDOFF_SCENE_DURATION = sceneDuration("handoff");
 const FINAL_SCENE_DURATION     = sceneDuration("final");
 
 const VIDEO_OFFSETS = {
@@ -207,8 +179,8 @@ const MASCOT_AUDIO_SEGMENTS = {
     startFrom: VIDEO_OFFSETS.mascotColdOpen,
   },
   transition: {
-    sequenceFrom: TIMELINE.turningB.from,
-    duration: Math.min(TURNING_B_SCENE_DURATION, MASCOT_TOTAL_FRAMES - VIDEO_OFFSETS.mascotTransition),
+    sequenceFrom: TIMELINE.handoff.from,
+    duration: Math.min(HANDOFF_SCENE_DURATION, MASCOT_TOTAL_FRAMES - VIDEO_OFFSETS.mascotTransition),
     startFrom: VIDEO_OFFSETS.mascotTransition,
   },
   final: {
@@ -223,6 +195,69 @@ const MASCOT_AUDIO_SEGMENTS = {
 
 const easeOut   = Easing.bezier(0.16, 1, 0.3, 1);
 const easeInOut = Easing.bezier(0.45, 0, 0.55, 1);
+
+type TimedPhrase = {
+  text: string;
+  from: number;
+  to: number;
+};
+
+const normalizeTimedPhrases = ({
+  phrases,
+  minDurationFrames,
+  sceneDurationFrames,
+  minGapFrames = 2,
+  trailingPaddingFrames = 12,
+}: {
+  phrases: TimedPhrase[];
+  minDurationFrames: number;
+  sceneDurationFrames: number;
+  minGapFrames?: number;
+  trailingPaddingFrames?: number;
+}) => {
+  const sceneEnd = Math.max(0, sceneDurationFrames - trailingPaddingFrames);
+
+  return phrases.reduce<TimedPhrase[]>((acc, phrase) => {
+    const previous = acc.length > 0 ? acc[acc.length - 1] : undefined;
+    const from = previous
+      ? Math.max(phrase.from, previous.to + minGapFrames)
+      : phrase.from;
+    const to = Math.min(
+      sceneEnd,
+      Math.max(phrase.to, from + minDurationFrames),
+    );
+
+    acc.push({
+      ...phrase,
+      from,
+      to: Math.max(from, to),
+    });
+
+    return acc;
+  }, []);
+};
+
+const getPhraseOpacity = (frame: number, from: number, to: number) => {
+  const duration = Math.max(0, to - from);
+
+  if (duration <= 1) {
+    return frame >= from && frame <= to ? 1 : 0;
+  }
+
+  if (duration <= 10) {
+    const midpoint = from + Math.max(1, Math.floor(duration / 2));
+    return interpolate(frame, [from, midpoint, to], [0, 1, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+  }
+
+  return interpolate(frame, [from, from + 4, to - 4, to], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeOut,
+  });
+};
 
 /** Fade in → hold → fade out within a scene's local frame range. */
 const fadeScene = (frame: number, total: number, enter = 18, exit = 18) => {
@@ -260,53 +295,141 @@ const enterProgress = (frame: number, fps: number, delay = 0) =>
 
 // ─── AUDIO VOLUME FUNCTIONS ──────────────────────────────────────────────────
 
+/**
+ * All detected silence windows in GLOBAL frame coordinates.
+ * Waveform-mapped via FFmpeg silencedetect (threshold −29.75 dB, min 230 ms)
+ * on voiceover-dani.mp3. Each entry covers the full silence onset → end.
+ */
+const MUSIC_LIFTS = [
+  // ── Early / tension scene ──────────────────────────────────────────────────
+  {from:  101, to:  119},  // 1.375–1.950s (576ms)
+  {from:  155, to:  169},  // 3.169–3.620s → tension cut
+  {from:  208, to:  218},  // 4.933–5.264s
+  {from:  243, to:  254},  // 6.108–6.470s
+  {from:  306, to:  318},  // 8.197–8.615s → lore cut
+  // ── Lore scene ─────────────────────────────────────────────────────────────
+  {from:  396, to:  406},  // 11.193–11.535s
+  {from:  431, to:  440},  // 12.354–12.666s
+  {from:  467, to:  479},  // 13.553–13.977s → lore.to
+  {from:  536, to:  551},  // 15.871–16.366s
+  // ── Roberto scene ──────────────────────────────────────────────────────────
+  {from:  662, to:  672},  // 20.054–20.396s
+  {from:  719, to:  731},  // 21.946–22.366s → roberto.to
+  // ── Carmen scene ───────────────────────────────────────────────────────────
+  {from:  781, to:  794},  // 24.030–24.456s
+  {from:  829, to:  840},  // 25.638–25.991s → carmen.to
+  // ── Build scene ────────────────────────────────────────────────────────────
+  {from:  878, to:  889},  // 27.257–27.619s
+  {from:  932, to:  943},  // 29.061–29.439s
+  {from:  987, to:  998},  // 30.894–31.254s → build.to
+  // ── Pause → bigIdea ────────────────────────────────────────────────────────
+  {from: 1093, to: 1106},  // 34.440–34.868s → bigIdea.to
+  // ── Transition scene ───────────────────────────────────────────────────────
+  {from: 1146, to: 1157},  // 36.192–36.569s
+  {from: 1197, to: 1208},  // 37.907–38.258s → transition.to
+  // ── Mobile scene ───────────────────────────────────────────────────────────
+  {from: 1235, to: 1246},  // 39.149–39.543s
+  {from: 1286, to: 1299},  // 40.861–41.313s → mobile.to
+  // ── Kiosk scene ────────────────────────────────────────────────────────────
+  {from: 1347, to: 1357},  // 42.913–43.247s
+  {from: 1378, to: 1385},  // 43.938–44.174s → kiosk.to
+  // ── Admin scene ────────────────────────────────────────────────────────────
+  {from: 1405, to: 1414},  // 44.844–45.129s
+  {from: 1455, to: 1465},  // 46.500–46.829s → admin.to
+  // ── Benefits / resolution ──────────────────────────────────────────────────
+  {from: 1545, to: 1554},  // 49.487–49.796s
+  {from: 1586, to: 1594},  // 50.869–51.122s → resolution.from
+  // ── Resolution scene ───────────────────────────────────────────────────────
+  {from: 1625, to: 1633},  // 52.170–52.426s
+  {from: 1664, to: 1671},  // 53.455–53.707s
+  {from: 1698, to: 1707},  // 54.604–54.905s → final.from
+  // ── Final scene ────────────────────────────────────────────────────────────
+  {from: 1730, to: 1740},  // 55.676–55.990s
+  {from: 1757, to: 1765},  // 56.567–56.849s
+  {from: 1789, to: 1799},  // 57.620–57.977s
+  {from: 1818, to: 1827},  // 58.606–58.909s
+] as const;
+
 const getVoiceoverVolume = (frame: number) => {
-  // Keep the processed voiceover flat through the body.
-  // The previous per-cut micro-dips stacked with the pause lifts and made
-  // the local cut at 27.23s (VO frame 817) read as a level jump.
   return interpolate(
     frame,
     [0, 10, AUDIO_TOTAL_FRAMES - 14, AUDIO_TOTAL_FRAMES],
     [0, VOICEOVER_BASE_VOLUME, VOICEOVER_BASE_VOLUME, 0],
-    {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    },
   );
 };
 
 const getMusicVolume = (frame: number) => {
+  // ── Bed curve ──────────────────────────────────────────────────────────────
+  // FIX: COLD_OPEN_FRAMES === TIMELINE.tension.from (both = 169) — duplicate
+  // removed. The transition from cold-open to under-VO volume happens at
+  // TIMELINE.tension.from in a single keyframe.
   const bed = interpolate(
     frame,
     [
       0,
       MUSIC_FADE_IN_FRAMES,
       COLD_OPEN_DURATION,
-      COLD_OPEN_FRAMES,
+      TIMELINE.tension.from,
+      TIMELINE.bigIdea.from,
       TIMELINE.final.from - 12,
       CONDO_PRODUCT_TOTAL_FRAMES - MUSIC_FADE_OUT_FRAMES,
       CONDO_PRODUCT_TOTAL_FRAMES,
     ],
     [
       0,
-      MUSIC_COLD_OPEN_VOLUME * 0.6,
+      MUSIC_COLD_OPEN_VOLUME * 0.7,
       MUSIC_COLD_OPEN_VOLUME,
-      MUSIC_UNDER_VO_VOLUME,
-      MUSIC_UNDER_VO_VOLUME,
+      MUSIC_UNDER_VO_VOLUME,          // was: 0.92× then UNDER (two frames, same value)
+      MUSIC_UNDER_VO_VOLUME * 0.7,
+      MUSIC_FINAL_VOLUME,
       MUSIC_FINAL_VOLUME,
       0,
     ],
     {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
   );
 
+  const coldOpenSwell = interpolate(
+    frame,
+    [0, COLD_OPEN_DURATION - 10, COLD_OPEN_DURATION + 10],
+    [0, 0.012, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut},
+  );
+
+  const tensionUndertone = interpolate(
+    frame,
+    [TIMELINE.tension.from, TIMELINE.tension.from + 18, TIMELINE.tension.to],
+    [0, 0.008, 0.004],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut},
+  );
+
+  const ideaLift = interpolate(
+    frame,
+    [TIMELINE.bigIdea.from - 8, TIMELINE.bigIdea.from + 6, TIMELINE.bigIdea.to],
+    [0, MUSIC_TRANSITION_VOLUME - MUSIC_UNDER_VO_VOLUME, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+  );
+
+  const revealLift = interpolate(
+    frame,
+    [TIMELINE.mobile.from - 4, TIMELINE.mobile.from + 10, TIMELINE.mobile.from + 26],
+    [0, 0.01, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+  );
+
   const finalLift = interpolate(
     frame,
-    [TIMELINE.final.from - 12, TIMELINE.final.from + 28, CONDO_PRODUCT_TOTAL_FRAMES],
-    [0, MUSIC_TRANSITION_VOLUME - MUSIC_UNDER_VO_VOLUME, MUSIC_FINAL_VOLUME - MUSIC_UNDER_VO_VOLUME],
+    [TIMELINE.final.from - 12, TIMELINE.final.from + 24, CONDO_PRODUCT_TOTAL_FRAMES - MUSIC_FADE_OUT_FRAMES],
+    [0, 0.014, 0.01],
     {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
   );
 
+  // ── Pause lifts — music fills every detected silence window ────────────────
+  // Pre-attack 10 frames before silence onset, tail 14 frames after silence end.
   const pauseLiftWindow = (from: number, to: number) => {
-    // Pre-attack 10 frames before pause: music begins rising early,
-    // creating a smooth perceptual bridge before the VO cuts out.
-    // Extended 14-frame tail lets the bed drift back down naturally.
     const start        = Math.max(0, from - 10);
     const attackEnd    = Math.min(from + 4, to - 2);
     const releaseStart = Math.max(attackEnd + 1, to - 2);
@@ -324,7 +447,7 @@ const getMusicVolume = (frame: number) => {
     );
   }, 0);
 
-  return bed + pauseLift + finalLift;
+  return bed + coldOpenSwell + tensionUndertone + ideaLift + revealLift + finalLift + pauseLift;
 };
 
 const getMascotVolume = (frame: number, section: "coldOpen" | "transition" | "final") => {
@@ -340,7 +463,7 @@ const getMascotVolume = (frame: number, section: "coldOpen" | "transition" | "fi
   if (section === "transition") {
     return interpolate(
       frame,
-      [0, 8, 24, TURNING_B_SCENE_DURATION - 16, TURNING_B_SCENE_DURATION],
+      [0, 8, 24, HANDOFF_SCENE_DURATION - 16, HANDOFF_SCENE_DURATION],
       [0, MASCOT_AUDIO_TRANSITION_VOLUME, MASCOT_AUDIO_TRANSITION_VOLUME * 0.85, 0.02, 0],
       {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
     );
@@ -543,6 +666,13 @@ const ExplainerText: React.FC<{
   maxWidth  ?: number;
   titleColor?: string;
   delay     ?: number;
+  bodyDelay ?: number;
+  titleSize ?: number;
+  titleLineHeight?: number;
+  bodySize ?: number;
+  bodyLineHeight?: number;
+  eyebrowSize ?: number;
+  eyebrowSpacing?: number;
 }> = ({
   title,
   body,
@@ -552,14 +682,28 @@ const ExplainerText: React.FC<{
   maxWidth     = 760,
   titleColor   = TEXT,
   delay        = 0,
+  bodyDelay    = 6,
+  titleSize    = 100,
+  titleLineHeight = 0.96,
+  bodySize     = 36,
+  bodyLineHeight = 1.28,
+  eyebrowSize  = 15,
+  eyebrowSpacing = SP.sm,
 }) => {
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
   const enter   = enterProgress(frame, fps, delay);
+  const bodyEnter = enterProgress(frame, fps, delay + bodyDelay);
   const opacity = interpolate(enter, [0, 1], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
   const y = interpolate(enter, [0, 1], [20, 0], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const bodyOpacity = interpolate(bodyEnter, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp",
+  });
+  const bodyY = interpolate(bodyEnter, [0, 1], [18, 0], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp",
   });
 
@@ -576,13 +720,13 @@ const ExplainerText: React.FC<{
         <div
           style={{
             fontFamily   : BODY_FONT,
-            fontSize     : 15,
+            fontSize     : eyebrowSize,
             lineHeight   : 1,
             fontWeight   : 700,
             letterSpacing: "0.09em",
             color        : eyebrowColor,
             textTransform: "uppercase",
-            marginBottom : SP.sm,
+            marginBottom : eyebrowSpacing,
           }}
         >
           {eyebrow}
@@ -592,8 +736,8 @@ const ExplainerText: React.FC<{
       <div
         style={{
           fontFamily   : DISPLAY_FONT,
-          fontSize     : 84,
-          lineHeight   : 0.96,
+          fontSize     : titleSize,
+          lineHeight   : titleLineHeight,
           fontWeight   : 600,
           letterSpacing: "-0.03em",
           color        : titleColor,
@@ -607,11 +751,13 @@ const ExplainerText: React.FC<{
           style={{
             marginTop    : SP.md,
             fontFamily   : BODY_FONT,
-            fontSize     : 28,
-            lineHeight   : 1.32,
+            fontSize     : bodySize,
+            lineHeight   : bodyLineHeight,
             fontWeight   : 400,
             letterSpacing: "-0.015em",
             color        : TEXT_MID,
+            opacity      : bodyOpacity,
+            transform    : `translateY(${bodyY}px)`,
           }}
         >
           {body}
@@ -635,6 +781,7 @@ const VideoCard: React.FC<{
   frameHeight  : number;
   objectFit   ?: "contain" | "cover";
   accent      ?: string;
+  entranceDelay?: number;
 }> = ({
   src,
   startFrom,
@@ -643,17 +790,23 @@ const VideoCard: React.FC<{
   frameHeight,
   objectFit = "contain",
   accent = BLUE,
+  entranceDelay = 0,
 }) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
 
-  const enter = enterProgress(frame, fps);
+  const enter = enterProgress(frame, fps, entranceDelay);
+  const revealOpacity = interpolate(frame, [entranceDelay, entranceDelay + 8], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
   const opacity = interpolate(enter, [0, 1], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-  });
+  }) * revealOpacity;
 
-  const cardY = interpolate(enter, [0, 1], [16, 0], {
+  const cardY = interpolate(enter, [0, 1], [14, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -866,13 +1019,17 @@ const RoleCard: React.FC<{
 const ColdOpenScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
   const frame  = useCurrentFrame();
   const opacity  = fadeScene(frame, totalDuration, 18, 12);
+  const hookOneFrom = secondsToFrames(2.215);
+  const hookOneTo = secondsToFrames(3.563);
+  const hookTwoFrom = secondsToFrames(4.34);
+  const hookTwoTo = secondsToFrames(5.924);
   const reveal   = interpolate(frame, [0, 26], [0, 1], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeInOut,
   });
-  const firstLine = interpolate(frame, [COLD_OPEN_DURATION + 6, COLD_OPEN_DURATION + 24], [0, 1], {
+  const firstLine = interpolate(frame, [hookOneFrom, hookOneFrom + 8, hookOneTo - 8, hookOneTo], [0, 1, 1, 0], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut,
   });
-  const secondLine = interpolate(frame, [COLD_OPEN_DURATION + 34, COLD_OPEN_DURATION + 58], [0, 1], {
+  const secondLine = interpolate(frame, [hookTwoFrom, hookTwoFrom + 8, hookTwoTo - 8, hookTwoTo], [0, 1, 1, 0], {
     extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut,
   });
   const textY = interpolate(frame, [COLD_OPEN_DURATION, totalDuration], [10, 0], {
@@ -999,136 +1156,319 @@ const ColdOpenScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ResidentScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
-  const frame   = useCurrentFrame();
-  const opacity = fadeScene(frame, totalDuration, 8, 12);
+const TensionScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
+  const frame = useCurrentFrame();
+  const opacity = fadeScene(frame, totalDuration, 10, 10);
+  const zoom = interpolate(frame, [0, totalDuration], [1, 1.04], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: easeInOut,
+  });
+  const lines = [
+    {
+      text: "Y no es solo la espera...",
+      from: secondsToFrames(6.78) - TIMELINE.tension.from,
+      to: secondsToFrames(8.27) - TIMELINE.tension.from,
+    },
+    {
+      text: "es no saber...",
+      from: secondsToFrames(8.799) - TIMELINE.tension.from,
+      to: secondsToFrames(9.73) - TIMELINE.tension.from,
+    },
+    {
+      text: "quién está realmente entrando.",
+      from: secondsToFrames(10.104) - TIMELINE.tension.from,
+      to: secondsToFrames(11.952) - TIMELINE.tension.from,
+    },
+  ] as const;
 
   return (
-    <Background opacity={opacity} accent="blue">
+    <AbsoluteFill style={{overflow: "hidden", opacity, background: `linear-gradient(168deg, ${BG} 0%, ${BG_SOFT} 60%, #EFF6FF 100%)`}}>
       <div
         style={{
-          position             : "absolute",
-          inset                : 0,
-          padding              : `${SP.frame}px ${SP.frame}px`,
-          display              : "grid",
-          gridTemplateColumns  : "520px 1fr",
-          gap                  : SP.lg,
-          alignItems           : "center",
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(ellipse 78% 56% at 50% 34%, rgba(15,23,42,0.14) 0%, rgba(15,23,42,0.04) 46%, transparent 74%)",
+          opacity: 0.9,
         }}
-      >
-        <ExplainerText
-          eyebrow="Lore · Residente"
-          eyebrowColor={BLUE}
-          title="Solo quiere que sus cosas lleguen."
-          body="Sin llamadas. Sin esperas. Sin complicaciones."
-          maxWidth={520}
-          delay={4}
-        />
-        <VideoCard
-          src={MOBILE}
-          startFrom={VIDEO_OFFSETS.mobileProblem}
-          totalDuration={totalDuration}
-          frameWidth={1120}
-          frameHeight={760}
-          objectFit="contain"
-          accent={BLUE}
-        />
-      </div>
-    </Background>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-const ProblemScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
-  const frame   = useCurrentFrame();
-  const opacity = fadeScene(frame, totalDuration);
-
-  return (
-    <Background opacity={opacity} accent="purple">
+      />
       <div
         style={{
-          position           : "absolute",
-          inset              : 0,
-          padding            : `${SP.frame + 8}px ${SP.frame}px ${SP.frame}px`,
-          display            : "grid",
-          gridTemplateColumns: "600px 1fr",
-          gap                : SP.lg,
-          alignItems         : "center",
-        }}
-      >
-        <ExplainerText
-          eyebrow="El problema"
-          eyebrowColor={PURPLE}
-          title="Hoy dependes de llamadas, interfones y procesos manuales."
-          body="Demasiada fricción para algo que debería resolverse en segundos."
-          maxWidth={600}
-          delay={6}
-        />
-        <VideoCard
-          src={MOBILE}
-          startFrom={VIDEO_OFFSETS.mobileProblem}
-          totalDuration={totalDuration}
-          frameWidth={1028}
-          frameHeight={760}
-          objectFit="contain"
-          accent={PURPLE}
-        />
-      </div>
-    </Background>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CharacterScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
-  const frame   = useCurrentFrame();
-  const opacity = fadeScene(frame, totalDuration);
-  const roles   = [
-    {name: "Lore",    role: "Residente",      accent: BLUE,   sketch: <LoreSketch />},
-    {name: "Roberto", role: "Guardia",         accent: TEAL,   sketch: <RobertSketch />},
-    {name: "Carmen",  role: "Administración",  accent: PURPLE, sketch: <CarmenSketch />},
-  ];
-
-  return (
-    <Background opacity={opacity} accent="neutral">
-      <div
-        style={{
-          position      : "absolute",
-          inset         : 0,
-          display       : "flex",
-          flexDirection : "column",
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "flex-end",
           justifyContent: "center",
-          alignItems    : "center",
-          padding       : `${SP.xl}px ${SP.frame}px`,
+          paddingBottom: 88,
+          transform: `scale(${zoom})`,
         }}
       >
-        <ExplainerText
-          eyebrow="Tres personas"
-          eyebrowColor={TEXT_LOW}
-          title="Tres personas. Un mismo problema."
-          body="Nadie quiere una app extra. Nadie quiere más pasos."
-          centered
-          maxWidth={960}
-          delay={6}
-        />
-        <div style={{marginTop: SP.xl, display: "flex", gap: SP.base}}>
-          {roles.map((role, i) => {
-            const cardIn = interpolate(frame, [20 + i * 10, 44 + i * 10], [0, 1], {
-              extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut,
-            });
+        <div style={{opacity: 0.72, transform: "translateY(18px)"}}>
+          <MascotMoment
+            startFrom={VIDEO_OFFSETS.mascotColdOpen + 42}
+            width={456}
+            height={456}
+            totalDuration={totalDuration}
+            opacity={1}
+          />
+        </div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: `0 ${SP.frame * 2.4}px 88px`,
+        }}
+      >
+        <div style={{position: "relative", width: 960, minHeight: 252, transform: "translateY(-54px)"}}>
+          {lines.map((line) => {
+            const lineOpacity = interpolate(
+              frame,
+              [line.from, line.from + 10, line.to - 12, line.to],
+              [0, 1, 1, 0],
+              {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+            );
             return (
               <div
-                key={role.name}
+                key={line.text}
                 style={{
-                  opacity  : cardIn,
-                  transform: `translateY(${interpolate(cardIn, [0, 1], [20, 0])}px)`,
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: lineOpacity,
+                  fontFamily: DISPLAY_FONT,
+                  fontSize: 78,
+                  lineHeight: 1.02,
+                  fontWeight: 600,
+                  letterSpacing: "-0.028em",
+                  color: TEXT,
                 }}
               >
-                <RoleCard {...role} />
+                {line.text}
               </div>
             );
           })}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CharacterFocusScene: React.FC<{
+  totalDuration: number;
+  accent: string;
+  accentKey: AccentKey;
+  eyebrow: string;
+  title: string;
+  body: string;
+  phrases?: TimedPhrase[];
+  card: React.ReactNode;
+  align: "left" | "right";
+}> = ({totalDuration, accent, accentKey, eyebrow, title, body, phrases, card, align}) => {
+  const frame = useCurrentFrame();
+  const opacity = fadeScene(frame, totalDuration, 10, 10);
+  const editorialFocus = eyebrow === "Lore · Residente" || eyebrow === "Carmen · Administración";
+  const textLift = interpolate(frame, [0, totalDuration], [12, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const layoutWidth = editorialFocus ? 1360 : 1400;
+  const gridTemplateColumns = align === "left"
+    ? (editorialFocus ? "minmax(0, 1.02fr) minmax(320px, 0.78fr)" : "minmax(0, 1.04fr) minmax(320px, 0.8fr)")
+    : (editorialFocus ? "minmax(320px, 0.78fr) minmax(0, 1.02fr)" : "minmax(320px, 0.8fr) minmax(0, 1.04fr)");
+  const textMaxWidth = editorialFocus ? 472 : 500;
+  const textJustify = align === "left" ? "flex-start" : "flex-start";
+  const cardJustify = align === "left" ? "flex-start" : "flex-end";
+  const cardTransformOrigin = align === "left" ? "left top" : "right top";
+  const cardTransform = editorialFocus
+    ? (align === "left" ? "translateY(46px) translateX(-8px) scale(1.03)" : "translateY(46px) translateX(8px) scale(1.03)")
+    : (align === "left" ? "translateY(18px) translateX(-4px) scale(1.02)" : "translateY(18px) translateX(4px) scale(1.02)");
+
+  return (
+    <Background opacity={opacity} accent={accentKey}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: `${SP.frame - 8}px ${SP.frame - 12}px`,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: layoutWidth,
+            display: "grid",
+            gridTemplateColumns,
+            alignItems: editorialFocus ? "start" : "center",
+            gap: editorialFocus ? 30 : 34,
+          }}
+        >
+          {align === "left" ? (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: textJustify,
+                  paddingTop: editorialFocus ? 14 : 0,
+                  transform: editorialFocus ? `translateY(${textLift}px)` : undefined,
+                }}
+              >
+                {phrases ? (
+                  <div style={{width: textMaxWidth, position: "relative", minHeight: editorialFocus ? 290 : 250}}>
+                    <div
+                      style={{
+                        fontFamily: BODY_FONT,
+                        fontSize: 18,
+                        lineHeight: 1,
+                        fontWeight: 700,
+                        letterSpacing: "0.09em",
+                        color: accent,
+                        textTransform: "uppercase",
+                        marginBottom: 20,
+                      }}
+                    >
+                      {eyebrow}
+                    </div>
+                    <div style={{position: "relative", minHeight: 220}}>
+                      {phrases.map((phrase, index) => (
+                        <div
+                          key={phrase.text}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: getPhraseOpacity(frame, phrase.from, phrase.to),
+                            fontFamily: index === 0 ? DISPLAY_FONT : BODY_FONT,
+                            fontSize: index === 0 ? (editorialFocus ? 80 : 86) : 38,
+                            lineHeight: index === 0 ? (editorialFocus ? 1.01 : 0.99) : 1.24,
+                            fontWeight: index === 0 ? 600 : 500,
+                            letterSpacing: index === 0 ? "-0.03em" : "-0.02em",
+                            color: index === 0 ? TEXT : TEXT_MID,
+                          }}
+                        >
+                          {phrase.text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <ExplainerText
+                    eyebrow={eyebrow}
+                    eyebrowColor={accent}
+                    title={title}
+                    body={body}
+                    maxWidth={textMaxWidth}
+                    delay={4}
+                    bodyDelay={12}
+                    titleSize={editorialFocus ? 80 : 86}
+                    titleLineHeight={editorialFocus ? 1.01 : 0.99}
+                    bodySize={editorialFocus ? 34 : 34}
+                    bodyLineHeight={editorialFocus ? 1.32 : 1.28}
+                    eyebrowSize={18}
+                    eyebrowSpacing={20}
+                  />
+                )}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: cardJustify,
+                  alignItems: "flex-start",
+                  transform: cardTransform,
+                  transformOrigin: cardTransformOrigin,
+                }}
+              >
+                {card}
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: cardJustify,
+                  alignItems: "flex-start",
+                  transform: cardTransform,
+                  transformOrigin: cardTransformOrigin,
+                }}
+              >
+                {card}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: textJustify,
+                  paddingTop: editorialFocus ? 14 : 0,
+                  transform: editorialFocus ? `translateY(${textLift}px)` : undefined,
+                }}
+              >
+                {phrases ? (
+                  <div style={{width: textMaxWidth, position: "relative", minHeight: editorialFocus ? 290 : 250}}>
+                    <div
+                      style={{
+                        fontFamily: BODY_FONT,
+                        fontSize: 18,
+                        lineHeight: 1,
+                        fontWeight: 700,
+                        letterSpacing: "0.09em",
+                        color: accent,
+                        textTransform: "uppercase",
+                        marginBottom: 20,
+                      }}
+                    >
+                      {eyebrow}
+                    </div>
+                    <div style={{position: "relative", minHeight: 220}}>
+                      {phrases.map((phrase, index) => (
+                        <div
+                          key={phrase.text}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: getPhraseOpacity(frame, phrase.from, phrase.to),
+                            fontFamily: index === 0 ? DISPLAY_FONT : BODY_FONT,
+                            fontSize: index === 0 ? (editorialFocus ? 80 : 86) : 38,
+                            lineHeight: index === 0 ? (editorialFocus ? 1.01 : 0.99) : 1.24,
+                            fontWeight: index === 0 ? 600 : 500,
+                            letterSpacing: index === 0 ? "-0.03em" : "-0.02em",
+                            color: index === 0 ? TEXT : TEXT_MID,
+                          }}
+                        >
+                          {phrase.text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <ExplainerText
+                    eyebrow={eyebrow}
+                    eyebrowColor={accent}
+                    title={title}
+                    body={body}
+                    maxWidth={textMaxWidth}
+                    delay={4}
+                    bodyDelay={12}
+                    titleSize={editorialFocus ? 80 : 86}
+                    titleLineHeight={editorialFocus ? 1.01 : 0.99}
+                    bodySize={editorialFocus ? 34 : 34}
+                    bodyLineHeight={editorialFocus ? 1.32 : 1.28}
+                    eyebrowSize={18}
+                    eyebrowSpacing={20}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </Background>
@@ -1137,12 +1477,115 @@ const CharacterScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Cinematic breath between build and bigIdea.
+ * No content — just the neutral background for a clean visual pause.
+ */
+const PauseScene: React.FC = () => (
+  <Background accent="neutral">
+    <AbsoluteFill />
+  </Background>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ProblemBuildScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
+  const frame = useCurrentFrame();
+  const opacity = fadeScene(frame, totalDuration, 8, 6);
+  const buildIn = spring({
+    frame: frame - 4,
+    fps: FPS,
+    config: {damping: 18, stiffness: 108, mass: 0.9},
+  });
+  const buildOpacity = interpolate(buildIn, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const buildY = interpolate(buildIn, [0, 1], [26, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  // Leave a short cinematic breath after "sin herramientas" without adding a blank scene.
+  const trailingHoldStart = Math.max(0, totalDuration - 10);
+  const trailingHoldOpacity = interpolate(
+    frame,
+    [0, trailingHoldStart, totalDuration],
+    [1, 1, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+  );
+
+  return (
+    <Background opacity={opacity} accent="neutral">
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: `0 ${SP.frame * 2}px`,
+        }}
+      >
+        <div
+          style={{
+            width: 1280,
+            opacity: buildOpacity * trailingHoldOpacity,
+            transform: `translateY(${buildY}px)`,
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: DISPLAY_FONT,
+              fontSize: 90,
+              lineHeight: 0.95,
+              fontWeight: 600,
+              letterSpacing: "-0.033em",
+              color: TEXT,
+            }}
+          >
+            Demasiados pasos.
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              fontFamily: DISPLAY_FONT,
+              fontSize: 84,
+              lineHeight: 0.97,
+              fontWeight: 600,
+              letterSpacing: "-0.031em",
+              color: TEXT_MID,
+            }}
+          >
+            Demasiadas suposiciones.
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              fontFamily: DISPLAY_FONT,
+              fontSize: 78,
+              lineHeight: 1,
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              color: TEXT,
+            }}
+          >
+            Demasiada responsabilidad... sin herramientas.
+          </div>
+        </div>
+      </div>
+    </Background>
+  );
+};
+
 const TurningPointScene: React.FC<{
   totalDuration: number;
   title        : string;
   subtitle    ?: string;
   showMascot  ?: boolean;
-}> = ({totalDuration, title, subtitle, showMascot = false}) => {
+  titleDelay  ?: number;
+  bodyDelay   ?: number;
+}> = ({totalDuration, title, subtitle, showMascot = false, titleDelay = 4, bodyDelay = 14}) => {
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
   const opacity = fadeScene(frame, totalDuration, 10, 10);
@@ -1176,8 +1619,9 @@ const TurningPointScene: React.FC<{
           title={title}
           body={subtitle}
           centered
-          maxWidth={1180}
-          delay={4}
+          maxWidth={980}
+          delay={titleDelay}
+          bodyDelay={bodyDelay}
         />
       </div>
 
@@ -1216,7 +1660,20 @@ const VideoScene: React.FC<{
   accentKey    : AccentKey;
   align        : "left" | "right";
   frameHeight  : number;
-}> = ({totalDuration, src, startFrom, eyebrow, title, body, accent, accentKey, align, frameHeight}) => {
+  cardEntranceDelay?: number;
+}> = ({
+  totalDuration,
+  src,
+  startFrom,
+  eyebrow,
+  title,
+  body,
+  accent,
+  accentKey,
+  align,
+  frameHeight,
+  cardEntranceDelay = 0,
+}) => {
   const frame   = useCurrentFrame();
   const opacity = fadeScene(frame, totalDuration);
 
@@ -1239,6 +1696,7 @@ const VideoScene: React.FC<{
       frameHeight={frameHeight}
       objectFit="contain"
       accent={accent}
+      entranceDelay={cardEntranceDelay}
     />
   );
 
@@ -1267,17 +1725,30 @@ const BenefitSequence: React.FC<{totalDuration: number}> = ({totalDuration}) => 
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
   const opacity = fadeScene(frame, totalDuration, 10, 10);
-  const beats   = [
-    {label: "Sin apps nuevas", color: BLUE,   from: 0,   to: 68},
-    {label: "Sin aprendizaje",  color: PURPLE, from: 68,  to: 144},
-    {label: "Sin fricción",     color: TEAL,   from: 144, to: totalDuration},
+
+  // Distribute beats evenly across the scene so each phrase breathes
+  const beatDur = Math.floor(totalDuration / 3);
+  const beats = [
+    {label: "Sin apps nuevas", color: BLUE,   from: 0,           to: beatDur},
+    {label: "Sin aprendizaje", color: PURPLE, from: beatDur,     to: beatDur * 2},
+    {label: "Sin fricción",    color: TEAL,   from: beatDur * 2, to: totalDuration},
   ];
 
   // Springs for scale — called unconditionally (no hooks in loops)
-  const sp1 = spring({frame: frame - beats[0].from - 6, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
-  const sp2 = spring({frame: frame - beats[1].from - 6, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
-  const sp3 = spring({frame: frame - beats[2].from - 6, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
+  const sp1 = spring({frame: frame - beats[0].from - 4, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
+  const sp2 = spring({frame: frame - beats[1].from - 4, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
+  const sp3 = spring({frame: frame - beats[2].from - 4, fps, config: {damping: 18, stiffness: 120, mass: 0.9}});
   const springs = [sp1, sp2, sp3];
+
+  const getBeatOpacity = (from: number, to: number) => {
+    const fadeLen = Math.max(6, Math.min(12, Math.floor((to - from) * 0.2)));
+    return interpolate(
+      frame,
+      [from, from + fadeLen, to - fadeLen, to],
+      [0, 1, 1, 0],
+      {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+    );
+  };
 
   return (
     <Background opacity={opacity} accent="neutral">
@@ -1294,12 +1765,7 @@ const BenefitSequence: React.FC<{totalDuration: number}> = ({totalDuration}) => 
         <div style={{position: "relative", width: "100%", height: 160}}>
           {beats.map((beat, i) => {
             const sp          = springs[i];
-            const beatOpacity = interpolate(
-              frame,
-              [beat.from + 4, beat.from + 18, beat.to - 14, beat.to],
-              [0, 1, 1, 0],
-              {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
-            );
+            const beatOpacity = getBeatOpacity(beat.from, beat.to);
             const beatScale = interpolate(sp, [0, 1], [0.90, 1], {
               extrapolateLeft: "clamp", extrapolateRight: "clamp",
             });
@@ -1335,25 +1801,58 @@ const BenefitSequence: React.FC<{totalDuration: number}> = ({totalDuration}) => 
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ResolutionScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
+  const opacity = fadeScene(useCurrentFrame(), totalDuration, 10, 12);
+
+  return (
+    <Background opacity={opacity} accent="neutral">
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: `0 ${SP.frame * 2}px`,
+        }}
+      >
+        <ExplainerText
+          title="Más simple..."
+          body="pero también... más seguro."
+          centered
+          maxWidth={980}
+          delay={4}
+          bodyDelay={28}
+        />
+      </div>
+    </Background>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const FinalScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
   const frame   = useCurrentFrame();
   const {fps}   = useVideoConfig();
   const opacity = fadeScene(frame, totalDuration, 12, 0);
   const drift   = Math.sin(frame * 0.008) * 18;
 
-  // Staggered entrance for each text element
-  const titleEnter = spring({frame: frame - 4,  fps, config: {damping: 16, stiffness: 110, mass: 0.9}});
-  const subEnter   = spring({frame: frame - 18, fps, config: {damping: 16, stiffness: 110, mass: 0.9}});
-  const urlEnter   = spring({frame: frame - 32, fps, config: {damping: 18, stiffness: 100, mass: 1}});
-
-  const mk = (sp: number) => ({
-    opacity  : interpolate(sp, [0, 1], [0, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}),
-    y        : interpolate(sp, [0, 1], [18, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}),
-    scale    : interpolate(sp, [0, 1], [0.97, 1], {extrapolateLeft: "clamp", extrapolateRight: "clamp"}),
-  });
-  const title = mk(titleEnter);
-  const sub   = mk(subEnter);
-  const url   = mk(urlEnter);
+  // CondoBuddy: fades in early, holds through most of scene
+  const titleOpacity = interpolate(
+    frame,
+    [0, 10, totalDuration - 16, totalDuration],
+    [0, 1, 1, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+  );
+  // Acceso sin fricción: enters after CondoBuddy is established, holds to end
+  const subOpacity = interpolate(
+    frame,
+    [55, 78, totalDuration - 10, totalDuration],
+    [0, 1, 1, 0],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut},
+  );
+  const titleY = interpolate(frame, [0, 14], [20, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easeOut});
+  const subY   = interpolate(subOpacity, [0, 1], [14, 0], {extrapolateLeft: "clamp", extrapolateRight: "clamp"});
 
   // Mascot entrance
   const mascotSpring = spring({frame: frame - 8, fps, config: {damping: 18, stiffness: 90, mass: 1}});
@@ -1412,8 +1911,8 @@ const FinalScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
       >
         <div
           style={{
-            opacity  : title.opacity,
-            transform: `translateY(${title.y}px) scale(${title.scale})`,
+            opacity  : titleOpacity,
+            transform: `translateY(${titleY}px)`,
             fontFamily   : DISPLAY_FONT,
             fontSize     : 112,
             lineHeight   : 0.94,
@@ -1428,8 +1927,8 @@ const FinalScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
         <div
           style={{
             marginTop    : SP.md,
-            opacity      : sub.opacity,
-            transform    : `translateY(${sub.y}px)`,
+            opacity      : subOpacity,
+            transform    : `translateY(${subY}px)`,
             fontFamily   : BODY_FONT,
             fontSize     : 36,
             lineHeight   : 1.1,
@@ -1441,43 +1940,6 @@ const FinalScene: React.FC<{totalDuration: number}> = ({totalDuration}) => {
           Acceso sin fricción
         </div>
 
-        {/* Domain label */}
-        <div
-          style={{
-            marginTop    : SP.xl,
-            opacity      : url.opacity,
-            transform    : `translateY(${url.y}px) scale(${url.scale})`,
-            display      : "inline-flex",
-            alignItems   : "center",
-            gap          : SP.xs,
-            paddingBlock : SP.sm,
-            paddingInline: SP.md,
-            borderRadius : R_SM,
-            background   : "rgba(15,23,42,0.04)",
-            border       : `1px solid ${BORDER}`,
-          }}
-        >
-          <div
-            style={{
-              width       : 8,
-              height      : 8,
-              borderRadius: "50%",
-              background  : BLUE,
-              flexShrink  : 0,
-            }}
-          />
-          <span
-            style={{
-              fontFamily   : BODY_FONT,
-              fontSize     : 20,
-              fontWeight   : 500,
-              letterSpacing: "-0.01em",
-              color        : TEXT_MID,
-            }}
-          >
-            condobuddy.mx
-          </span>
-        </div>
       </div>
 
       {/* Mascot — positioned bottom-right, same card-system logic */}
@@ -1551,31 +2013,139 @@ export const CondoBuddyProduct: React.FC = () => {
         <ColdOpenScene totalDuration={sceneDuration("coldOpen")} />
       </Sequence>
 
-      <Sequence from={TIMELINE.resident.from} durationInFrames={sceneDuration("resident")}>
-        <ResidentScene totalDuration={sceneDuration("resident")} />
+      <Sequence from={TIMELINE.tension.from} durationInFrames={sceneDuration("tension")}>
+        <TensionScene totalDuration={sceneDuration("tension")} />
       </Sequence>
 
-      <Sequence from={TIMELINE.problem.from} durationInFrames={sceneDuration("problem")}>
-        <ProblemScene totalDuration={sceneDuration("problem")} />
-      </Sequence>
-
-      <Sequence from={TIMELINE.people.from} durationInFrames={sceneDuration("people")}>
-        <CharacterScene totalDuration={sceneDuration("people")} />
-      </Sequence>
-
-      <Sequence from={TIMELINE.turningA.from} durationInFrames={sceneDuration("turningA")}>
-        <TurningPointScene
-          totalDuration={sceneDuration("turningA")}
-          title="¿Y si nadie tuviera que instalar nada?"
+      <Sequence from={TIMELINE.lore.from} durationInFrames={sceneDuration("lore")}>
+        <CharacterFocusScene
+          totalDuration={sceneDuration("lore")}
+          accent={BLUE}
+          accentKey="blue"
+          eyebrow="Lore · Residente"
+          title="Lore solo quiere que su familia esté tranquila..."
+          body="sin dudas... sin riesgos."
+          phrases={normalizeTimedPhrases({
+            phrases: [
+              {
+                text: "Lorena solo quiere que su familia esté tranquila...",
+                from: secondsToFrames(12.995) - TIMELINE.lore.from,
+                to: secondsToFrames(15.953) - TIMELINE.lore.from,
+              },
+              {
+                text: "sin dudas...",
+                from: secondsToFrames(16.28) - TIMELINE.lore.from,
+                to: secondsToFrames(17.18) - TIMELINE.lore.from,
+              },
+              {
+                text: "sin riesgos.",
+                from: secondsToFrames(17.506) - TIMELINE.lore.from,
+                to: secondsToFrames(18.583) - TIMELINE.lore.from,
+              },
+            ],
+            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
+            sceneDurationFrames: sceneDuration("lore"),
+          })}
+          align="left"
+          card={<RoleCard name="Lore" role="Residente" accent={BLUE} sketch={<LoreSketch />} />}
         />
       </Sequence>
 
-      <Sequence from={TIMELINE.turningB.from} durationInFrames={sceneDuration("turningB")}>
+      <Sequence from={TIMELINE.roberto.from} durationInFrames={sceneDuration("roberto")}>
+        <CharacterFocusScene
+          totalDuration={sceneDuration("roberto")}
+          accent={TEAL}
+          accentKey="teal"
+          eyebrow="Roberto · Guardia"
+          title="Roberto quiere hacer bien su trabajo..."
+          body="pero depende de llamadas, libretas... y decisiones en segundos."
+          phrases={normalizeTimedPhrases({
+            phrases: [
+              {
+                text: "Roberto quiere hacer bien su trabajo...",
+                from: secondsToFrames(19.725) - TIMELINE.roberto.from,
+                to: secondsToFrames(21.644) - TIMELINE.roberto.from,
+              },
+              {
+                text: "pero depende de llamadas, libretas...",
+                from: secondsToFrames(22.092) - TIMELINE.roberto.from,
+                to: secondsToFrames(23.902) - TIMELINE.roberto.from,
+              },
+              {
+                text: "y decisiones en segundos.",
+                from: secondsToFrames(24.088) - TIMELINE.roberto.from,
+                to: secondsToFrames(24.924) - TIMELINE.roberto.from,
+              },
+            ],
+            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
+            sceneDurationFrames: sceneDuration("roberto"),
+          })}
+          align="right"
+          card={<RoleCard name="Roberto" role="Guardia" accent={TEAL} sketch={<RobertSketch />} />}
+        />
+      </Sequence>
+
+      <Sequence from={TIMELINE.carmen.from} durationInFrames={sceneDuration("carmen")}>
+        <CharacterFocusScene
+          totalDuration={sceneDuration("carmen")}
+          accent={PURPLE}
+          accentKey="purple"
+          eyebrow="Carmen · Administración"
+          title="Y Carmen necesita control..."
+          body="pero no tiene visibilidad real..."
+          phrases={normalizeTimedPhrases({
+            phrases: [
+              {
+                text: "Y Carmen necesita control...",
+                from: 0,
+                to: secondsToFrames(27.991) - TIMELINE.carmen.from,
+              },
+              {
+                text: "pero no tiene visibilidad real...",
+                from: secondsToFrames(27.991) - TIMELINE.carmen.from,
+                to: secondsToFrames(29.953) - TIMELINE.carmen.from,
+              },
+              {
+                text: "de lo que está pasando.",
+                from: secondsToFrames(30.511) - TIMELINE.carmen.from,
+                to: Math.max(
+                  secondsToFrames(33.727) - TIMELINE.carmen.from,
+                  sceneDuration("carmen") - 12,
+                ),
+              },
+            ],
+            minDurationFrames: MIN_PHRASE_DURATION_FRAMES,
+            sceneDurationFrames: sceneDuration("carmen"),
+          })}
+          align="left"
+          card={<RoleCard name="Carmen" role="Administración" accent={PURPLE} sketch={<CarmenSketch />} />}
+        />
+      </Sequence>
+
+      <Sequence from={TIMELINE.build.from} durationInFrames={sceneDuration("build")}>
+        <ProblemBuildScene totalDuration={sceneDuration("build")} />
+      </Sequence>
+
+      <Sequence from={TIMELINE.pause.from} durationInFrames={sceneDuration("pause")}>
+        <PauseScene />
+      </Sequence>
+
+      <Sequence from={TIMELINE.bigIdea.from} durationInFrames={sceneDuration("bigIdea")}>
         <TurningPointScene
-          totalDuration={sceneDuration("turningB")}
-          title="¿Y si todo funcionara desde WhatsApp?"
-          subtitle="Y desde una sola pantalla para todos los demás."
+          totalDuration={sceneDuration("bigIdea")}
+          title="¿Y si nadie tuviera que instalar nada?"
+          titleDelay={4}
+        />
+      </Sequence>
+
+      <Sequence from={TIMELINE.handoff.from} durationInFrames={sceneDuration("handoff")}>
+        <TurningPointScene
+          totalDuration={sceneDuration("handoff")}
+          title="¿Y si todo funcionara... desde donde ya estás?"
+          subtitle="Y con lo que ya tienes..."
           showMascot
+          titleDelay={0}
+          bodyDelay={18}
         />
       </Sequence>
 
@@ -1585,12 +2155,13 @@ export const CondoBuddyProduct: React.FC = () => {
           src={MOBILE}
           startFrom={VIDEO_OFFSETS.mobileReveal}
           eyebrow="Lore · Residente"
-          title="Autoriza desde WhatsApp."
-          body="El residente usa lo que ya conoce."
+          title="autorizas desde WhatsApp."
+          body="Cada acceso queda registrado. Cada entrada validada."
           accent={BLUE}
           accentKey="blue"
           align="left"
           frameHeight={780}
+          cardEntranceDelay={4}
         />
       </Sequence>
 
@@ -1600,12 +2171,13 @@ export const CondoBuddyProduct: React.FC = () => {
           src={KIOSK}
           startFrom={VIDEO_OFFSETS.kioskReveal}
           eyebrow="Roberto · Guardia"
-          title="El guardia usa una sola pantalla."
-          body="Sin instalar nada. Sin cambiar de sistema."
+          title="Roberto no adivina..."
+          body="actúa con información."
           accent={TEAL}
           accentKey="teal"
           align="right"
           frameHeight={720}
+          cardEntranceDelay={4}
         />
       </Sequence>
 
@@ -1615,8 +2187,8 @@ export const CondoBuddyProduct: React.FC = () => {
           src={ADMIN}
           startFrom={VIDEO_OFFSETS.adminReveal}
           eyebrow="Carmen · Administración"
-          title="La administración tiene control total."
-          body="Visibilidad real, en tiempo real."
+          title="Y Carmen ve todo..."
+          body="en tiempo real."
           accent={PURPLE}
           accentKey="purple"
           align="left"
@@ -1626,6 +2198,10 @@ export const CondoBuddyProduct: React.FC = () => {
 
       <Sequence from={TIMELINE.benefits.from} durationInFrames={sceneDuration("benefits")}>
         <BenefitSequence totalDuration={sceneDuration("benefits")} />
+      </Sequence>
+
+      <Sequence from={TIMELINE.resolution.from} durationInFrames={sceneDuration("resolution")}>
+        <ResolutionScene totalDuration={sceneDuration("resolution")} />
       </Sequence>
 
       <Sequence from={TIMELINE.final.from} durationInFrames={sceneDuration("final")}>

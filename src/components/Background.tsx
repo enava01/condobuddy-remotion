@@ -1,11 +1,12 @@
 import {
   AbsoluteFill,
+  Easing,
   Img,
+  interpolate,
   staticFile,
   useCurrentFrame,
-  useVideoConfig,
 } from "remotion";
-import { FPS, IMAGE_HEIGHT, IMAGE_WIDTH } from "../lib/constants";
+import { FPS } from "../lib/constants";
 import { BackgroundElement } from "../lib/types";
 import { calculateBlur, getImagePath } from "../lib/utils";
 
@@ -17,12 +18,6 @@ export const Background: React.FC<{
 }> = ({ item, project }) => {
   const frame = useCurrentFrame();
   const localMs = (frame / FPS) * 1000;
-  const { width, height } = useVideoConfig();
-
-  const imageRatio = IMAGE_HEIGHT / IMAGE_WIDTH;
-
-  const imgWidth = height;
-  const imgHeight = imgWidth * imageRatio;
   let animScale = 1 + EXTRA_SCALE;
 
   const currentScaleAnim = item.animations?.find(
@@ -31,38 +26,108 @@ export const Background: React.FC<{
   );
 
   if (currentScaleAnim) {
-    const progress =
-      (localMs - currentScaleAnim.startMs) /
-      (currentScaleAnim.endMs - currentScaleAnim.startMs);
-    animScale =
-      EXTRA_SCALE +
-      progress * (currentScaleAnim.to - currentScaleAnim.from) +
-      currentScaleAnim.from;
-  }
+    const animationStartFrame = Math.floor(
+      (currentScaleAnim.startMs * FPS) / 1000,
+    );
+    const animationEndFrame = Math.max(
+      animationStartFrame + 1,
+      Math.ceil((currentScaleAnim.endMs * FPS) / 1000),
+    );
 
-  const imgScale = animScale;
-  const top = -(imgHeight * imgScale - height) / 2;
-  const left = -(imgWidth * imgScale - width) / 2;
+    animScale = interpolate(
+      frame,
+      [animationStartFrame, animationEndFrame],
+      [currentScaleAnim.from, currentScaleAnim.to],
+      {
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      },
+    );
+  }
 
   const blur = calculateBlur({ item, localMs });
   const maxBlur = 25;
-
   const currentBlur = maxBlur * blur;
+  const durationFrames = Math.max(
+    1,
+    Math.ceil(((item.endMs - item.startMs) * FPS) / 1000),
+  );
+  const opacity = getTransitionOpacity({
+    durationFrames,
+    enterTransition: item.enterTransition,
+    exitTransition: item.exitTransition,
+    frame,
+  });
 
   return (
     <AbsoluteFill>
       <Img
         src={staticFile(getImagePath(project, item.imageUrl))}
         style={{
-          width: imgWidth * imgScale,
-          height: imgHeight * imgScale,
+          width: "100%",
+          height: "100%",
           position: "absolute",
-          top,
-          left,
+          inset: 0,
+          opacity,
+          objectFit: "cover",
           filter: `blur(${currentBlur}px)`,
           WebkitFilter: `blur(${currentBlur}px)`,
+          transform: `scale(${animScale})`,
+        }}
+      />
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.05) 38%, rgba(0,0,0,0.34) 100%)",
         }}
       />
     </AbsoluteFill>
   );
+};
+
+const getTransitionOpacity = ({
+  durationFrames,
+  enterTransition,
+  exitTransition,
+  frame,
+}: {
+  durationFrames: number;
+  enterTransition?: BackgroundElement["enterTransition"];
+  exitTransition?: BackgroundElement["exitTransition"];
+  frame: number;
+}) => {
+  const transitionFrames = Math.min(
+    Math.floor(0.4 * FPS),
+    Math.floor(durationFrames / 2),
+  );
+
+  if (transitionFrames <= 0) {
+    return 1;
+  }
+
+  const enterOpacity =
+    enterTransition === "fade" || enterTransition === "blur"
+      ? interpolate(frame, [0, transitionFrames], [0, 1], {
+          easing: Easing.out(Easing.cubic),
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 1;
+
+  const exitOpacity =
+    exitTransition === "fade" || exitTransition === "blur"
+      ? interpolate(
+          frame,
+          [durationFrames - transitionFrames, durationFrames],
+          [1, 0],
+          {
+            easing: Easing.in(Easing.cubic),
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        )
+      : 1;
+
+  return Math.min(enterOpacity, exitOpacity);
 };

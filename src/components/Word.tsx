@@ -6,9 +6,11 @@ import { AbsoluteFill, interpolate, useVideoConfig } from "remotion";
 
 export const Word: React.FC<{
   enterProgress: number;
+  exitProgress: number;
+  position: "top" | "bottom" | "center";
   text: string;
   stroke: boolean;
-}> = ({ enterProgress, text, stroke }) => {
+}> = ({ enterProgress, exitProgress, position, text, stroke }) => {
   const { fontFamily } = loadFont();
   const { width } = useVideoConfig();
   const desiredFontSize = 120;
@@ -20,15 +22,31 @@ export const Word: React.FC<{
   });
 
   const fontSize = Math.min(desiredFontSize, fittedText.fontSize);
+  const topByPosition = position === "top" ? 220 : undefined;
+  const bottomByPosition = position === "bottom" ? 260 : undefined;
+  const isCentered = position === "center";
+  const scaleValue = interpolate(enterProgress - exitProgress, [0, 1], [0.92, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const translateYValue = interpolate(
+    enterProgress - exitProgress,
+    [0, 1],
+    [position === "top" ? -32 : 42, 0],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    },
+  );
 
   return (
     <AbsoluteFill
       style={{
-        justifyContent: "center",
+        justifyContent: isCentered ? "center" : undefined,
         alignItems: "center",
-        top: undefined,
-        bottom: 350,
-        height: 150,
+        top: topByPosition,
+        bottom: bottomByPosition,
+        height: isCentered ? undefined : 220,
       }}
     >
       <div
@@ -37,12 +55,16 @@ export const Word: React.FC<{
           color: "white",
           WebkitTextStroke: stroke ? "20px black" : undefined,
           transform: makeTransform([
-            scale(interpolate(enterProgress, [0, 1], [0.8, 1])),
-            translateY(interpolate(enterProgress, [0, 1], [50, 0])),
+            scale(scaleValue),
+            translateY(translateYValue),
           ]),
           fontFamily,
           textTransform: "uppercase",
           textAlign: "center",
+          lineHeight: 0.98,
+          letterSpacing: 1,
+          maxWidth: width * 0.86,
+          padding: "0 24px",
         }}
       >
         {text}
